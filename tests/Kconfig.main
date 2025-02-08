@@ -1,0 +1,8 @@
+mainmenu MAIN
+    config A
+        prompt "config A"
+
+	source "./Kconfig.child"
+
+	config C
+        prompt "config C"

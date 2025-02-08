@@ -1,0 +1,4 @@
+config B
+    prompt "config B"
+    help
+      Config B defined in child file.
