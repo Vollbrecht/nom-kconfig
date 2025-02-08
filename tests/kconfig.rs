@@ -5,8 +5,9 @@ use nom_kconfig::{
         expression::{AndExpression, Atom, Expression, Term},
         r#type::{ConfigType, Type},
         select::Select,
+        Prompt,
     },
-    entry::config::Config,
+    entry::{config::Config, MainMenu},
     kconfig::parse_kconfig,
     symbol::Symbol,
     Attribute, Entry, Kconfig, KconfigFile, KconfigInput,
@@ -46,6 +47,63 @@ fn test_parse() {
                 Attribute::Help("Support hosting fully virtualized guest machines using hardware\nvirtualization extensions.  You will need a fairly recent\nprocessor equipped with virtualization extensions. You will also\nneed to select one or more of the processor modules below.".to_string()),
             )
         }))})))
+}
+
+#[test]
+fn test_nested_files() {
+    let input_file = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("Kconfig.main");
+    let kconfig_file: KconfigFile = KconfigFile::new(
+        input_file.parent().unwrap().to_path_buf(),
+        input_file.clone(),
+    );
+
+    let content = kconfig_file.read_to_string().unwrap();
+    let input = KconfigInput::new_extra(&content, kconfig_file);
+    let result = parse_kconfig(input);
+
+    assert_parsing!(
+        result,
+        Ok((
+            "",
+            Kconfig {
+                file: input_file.display().to_string(),
+                entries: vec!(
+                    Entry::MainMenu(MainMenu {
+                        prompt: "MAIN".to_string()
+                    }),
+                    Entry::Config(Config {
+                        symbol: "A".to_string(),
+                        attributes: vec![Attribute::Prompt(Prompt {
+                            prompt: "config A".to_string(),
+                            r#if: None
+                        }),]
+                    }),
+                    Entry::Source(Kconfig {
+                        file: "./Kconfig.child".to_string(),
+                        entries: vec![Entry::Config(Config {
+                            symbol: "B".to_string(),
+                            attributes: vec![
+                                Attribute::Prompt(Prompt {
+                                    prompt: "config B".to_string(),
+                                    r#if: None
+                                }),
+                                Attribute::Help("Config B defined in child file.".to_string())
+                            ]
+                        })]
+                    }),
+                    Entry::Config(Config {
+                        symbol: "C".to_string(),
+                        attributes: vec![Attribute::Prompt(Prompt {
+                            prompt: "config C".to_string(),
+                            r#if: None
+                        }),]
+                    })
+                )
+            }
+        ))
+    )
 }
 
 #[macro_export]
